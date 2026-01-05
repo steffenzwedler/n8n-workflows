@@ -1,0 +1,21 @@
+# n8n specific
+*.backup
+.env
+.env.local
+
+# Credentials and secrets
+*credentials*
+*secrets*
+*.key
+*.pem
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
