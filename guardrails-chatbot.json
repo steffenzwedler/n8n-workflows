@@ -1,0 +1,289 @@
+{
+  "name": "Test - Guardrails Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "chat-trigger",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        32,
+        304
+      ],
+      "webhookId": "test-guardrails-webhook"
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.body?.chatInput ?? $json.chatInput }}",
+        "guardrails": {
+          "keywords": "hack, hacken, hacking, exploit, exploits, malware, virus, crack, cracking, pirate, pirated, steal, stealing, illegal, weapon, weapons, bomb, bombs, sprengstoff, drugs, droge, drogen, password, passwords, credentials, breach, phishing, ransomware",
+          "jailbreak": {
+            "value": {
+              "threshold": 0.7
+            }
+          },
+          "nsfw": {
+            "value": {
+              "threshold": 0.7
+            }
+          },
+          "pii": {
+            "value": {
+              "type": "all"
+            }
+          },
+          "topicalAlignment": {
+            "value": {
+              "threshold": 0.7,
+              "prompt": "You are a content analysis system that determines if text stays on topic.\n\nBUSINESS SCOPE: Software development, programming, technology education, coding assistance, web development, databases, APIs, DevOps, cloud computing, data science, machine learning, and general technical questions related to computer science and software engineering.\n\nDetermine if the text stays within the defined business scope. Flag any content that strays from the allowed topics such as: illegal activities, violence, weapons, explosives, drugs, hacking for malicious purposes, or other harmful content."
+            }
+          }
+        }
+      },
+      "id": "input-guardrails",
+      "name": "Input Guardrails",
+      "type": "@n8n/n8n-nodes-langchain.guardrails",
+      "typeVersion": 2,
+      "position": [
+        224,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "id": "input-llm",
+      "name": "Input Guardrail LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        304,
+        512
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "MNT2FDDve06fuvI4",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.guardrailsInput }}",
+        "options": {
+          "systemMessage": "Du bist ein hilfreicher Assistent. Antworte freundlich und präzise auf Deutsch oder Englisch, je nach Sprache des Users."
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        624,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "id": "agent-llm",
+      "name": "Agent LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        624,
+        512
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "MNT2FDDve06fuvI4",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sanitize",
+        "text": "={{ $json.output }}",
+        "guardrails": {
+          "pii": {
+            "value": {
+              "type": "all"
+            }
+          }
+        }
+      },
+      "id": "output-guardrails",
+      "name": "Output Guardrails",
+      "type": "@n8n/n8n-nodes-langchain.guardrails",
+      "typeVersion": 2,
+      "position": [
+        960,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "model": "google/gemini-2.0-flash-001",
+        "options": {}
+      },
+      "id": "output-llm",
+      "name": "Output Guardrail LLM",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        992,
+        144
+      ],
+      "credentials": {
+        "openRouterApi": {
+          "id": "MNT2FDDve06fuvI4",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "guardrails-test",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        112,
+        112
+      ],
+      "webhookId": "guardrails-test-webhook-123"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{\n    $json.checks && $json.checks.some(c => c.triggered)\n      ? JSON.stringify({\n          blocked: true,\n          response: \"Ihre Anfrage wurde von unseren Sicherheitsrichtlinien blockiert (Gründe: \" + $json.checks.filter(c => c.triggered).map(c => c.name).join(\", \") + \"). Bitte stellen Sie sicher, dass Ihre Anfrage sich auf Software-Entwicklung, Programmierung und Technologie bezieht und keine sensiblen Daten, Jailbreak-Versuche oder schädlichen Inhalte enthält.\"\n        })\n      : JSON.stringify({\n          blocked: false,\n          response: $json.output || $json.guardrailsInput || \"Keine Antwort verfügbar\"\n        })\n  }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1200,
+        112
+      ]
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Input Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Guardrails": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input Guardrail LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Input Guardrails",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Output Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agent LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Guardrail LLM": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Output Guardrails",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Input Guardrails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Output Guardrails": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "active": true,
+  "id": "m2ei0HJ9L8Iriq5V"
+}
